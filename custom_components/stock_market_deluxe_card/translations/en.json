@@ -1,0 +1,14 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Stock Market Deluxe - Card",
+        "description": "Adds the Stock Market Deluxe - Card to your dashboards and fetches quotes from Yahoo Finance. No API key needed. After this, add the card from the dashboard card picker."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Stock Market Deluxe - Card is already set up.",
+      "cannot_connect": "Could not reach Yahoo Finance. Check the internet connection and try again."
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "domain": "stock_market_deluxe_card",
+  "name": "Stock Market Deluxe - Card",
+  "after_dependencies": ["lovelace"],
+  "codeowners": ["@codemonkey2k5"],
+  "config_flow": true,
+  "dependencies": ["http", "frontend", "websocket_api"],
+  "documentation": "https://github.com/codemonkey2k5/stock-market-deluxe-card",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/codemonkey2k5/stock-market-deluxe-card/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "1.0.1"
+}

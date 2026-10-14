@@ -1,0 +1,11 @@
+__pycache__/
+.pytest_cache/
+_scratch/
+_backup/
+versions/
+test/
+scripts/
+design/
+pyproject.toml
+docs/images/compare-*.png
+docs/images/live-*.png
