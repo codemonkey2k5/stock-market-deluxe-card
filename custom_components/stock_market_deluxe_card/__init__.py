@@ -169,6 +169,8 @@ def ws_settings_get(hass, connection, msg):
     vol.Required("symbol"): vol.All(str, vol.Length(min=1, max=15)),
     vol.Required("shares"): vol.All(vol.Coerce(float), vol.Range(min=0)),
     vol.Required("interval"): vol.All(vol.Coerce(int), vol.Range(min=MIN_OPEN)),
+    vol.Optional("statement_value"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+    vol.Optional("statement_date"): vol.All(str, vol.Date()),
     vol.Optional("hide"): [vol.In(["position", "tabs", "legend", "volbars", "rsi", "open", "high", "low", "prev", "vol", "cap", "w52", "pe", "eps", "beta", "ah"])],
 })
 @websocket_api.async_response
@@ -180,7 +182,7 @@ async def ws_settings_set(hass, connection, msg):
         "shares": msg["shares"],
         "interval": clamp_interval(msg["interval"], True),
     }
-    for key in ("hide",):
+    for key in ("hide", "statement_value", "statement_date"):
         if key in msg:
             cfg[key] = msg[key]
     cards = hass.data[DOMAIN]["cards"]

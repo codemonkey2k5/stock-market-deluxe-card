@@ -1,5 +1,5 @@
 /* Stock Market Deluxe - Card. Data comes from the stock_market_deluxe_card integration over the HA websocket. */
-const VERSION = "1.0.1";
+const VERSION = "1.0.2";
 const DOMAIN = "stock_market_deluxe_card";
 const DESIGN_W = 928;
 const DESIGN_H = 824;
@@ -285,6 +285,8 @@ class StockMarketCard extends HTMLElement {
       symbol: (s.symbol || this._config.symbol || "AAPL").toUpperCase(),
       shares: Number(s.shares ?? this._config.shares ?? 0),
       interval: Number(s.interval ?? this._config.interval ?? 300),
+      stmtValue: num(s.statement_value) ? s.statement_value : null,
+      stmtDate: s.statement_date || null,
     };
   }
   get _hide() {
@@ -349,6 +351,7 @@ class StockMarketCard extends HTMLElement {
       const d = await this._hass.callWS({ type: `${DOMAIN}/data`, symbol: s.symbol, range: this._range, interval: s.interval });
       this._data = d;
       this._error = d.quote ? null : `No quote found for ${s.symbol}.`;
+      await this._fetchRef(s);
     } catch (e) {
       if (!this._data) this._error = e.message || String(e);
     }
@@ -357,6 +360,27 @@ class StockMarketCard extends HTMLElement {
     // often than the effective interval only returns cached data.
     const wait = Math.max(this._data?.interval ?? this._limits.min_open, this._limits.min_open) * 1000;
     if (!document.hidden) this._timer = setTimeout(() => this._fetch(), wait + 2000);
+  }
+
+  // Close on the statement date (or the last trading day before it), from the 1Y daily chart.
+  async _fetchRef(s) {
+    if (s.stmtValue == null || !s.stmtDate) { this._ref = null; return; }
+    const key = `${s.symbol}|${s.stmtDate}`;
+    if (this._ref?.key === key && num(this._ref.close)) return;
+    try {
+      const d = await this._hass.callWS({ type: `${DOMAIN}/data`, symbol: s.symbol, range: "1Y", interval: s.interval });
+      const c = d.chart || {}, fmt = new Intl.DateTimeFormat("en-CA", { timeZone: c.tz || "America/New_York" });
+      let close = null;
+      if (c.t?.length && fmt.format(new Date(c.t[0] * 1000)) <= s.stmtDate) {
+        for (let i = 0; i < c.t.length; i++) {
+          if (fmt.format(new Date(c.t[i] * 1000)) > s.stmtDate) break;
+          close = c.c[i];
+        }
+      }
+      this._ref = { key, close: num(close) ? close : null };
+    } catch (e) {
+      this._ref = { key, close: null };
+    }
   }
 
   _render() {
@@ -372,7 +396,12 @@ class StockMarketCard extends HTMLElement {
     const stateText = open ? "Market open" : { PRE: "Pre-market", PREPRE: "Market closed", POST: "After hours", POSTPOST: "Market closed", CLOSED: "Market closed" }[q.marketState] || "Market closed";
     const chg = q.regularMarketChange, chp = q.regularMarketChangePercent;
     const up = (chg ?? 0) >= 0;
-    const value = s.shares * q.regularMarketPrice;
+    let value = s.shares * q.regularMarketPrice;
+    // Start from the statement value and move with the price since that day.
+    const ref = this._ref?.key === `${s.symbol}|${s.stmtDate}` ? this._ref.close : null;
+    if (s.stmtValue != null && s.stmtDate && num(ref) && ref > 0 && num(q.regularMarketPrice)) {
+      value = s.shares > 0 ? s.stmtValue + s.shares * (q.regularMarketPrice - ref) : s.stmtValue * q.regularMarketPrice / ref;
+    }
     const today = num(chg) ? s.shares * chg : null;
     const name = q.longName || q.shortName || q.symbol;
     const exch = q.fullExchangeName || q.exchange || "";
@@ -489,6 +518,9 @@ ${d.rate_limited || (age != null && age > 30) ? `<div class="stale">${d.rate_lim
 <div class="prev" id="pv"></div>
 <div class="f"><label>Shares owned</label><input id="sh" type="number" min="0" step="any" value="${s.shares}"></div>
 <div class="help">Used to calculate your position value and today's change.</div>
+<div class="f"><label>Current Value</label><input id="sv" type="number" min="0" step="any" value="${s.stmtValue ?? ""}"></div>
+<div class="f"><label>Statement date</label><input id="sd" type="date" style="color-scheme:dark" value="${esc(s.stmtDate || "")}"></div>
+<div class="help">Optional. Current Value is what your position was worth on the statement date (the date that value is from). The card starts from it and moves with the price from that day. Leave blank to use shares × price.</div>
 <div class="chkh">Show on the card</div><div class="chk">${Object.entries(ITEMS).map(([k, l]) => `<label><input type="checkbox" data-k="${k}" ${H.has(k) ? "" : "checked"}>${l}</label>`).join("")}</div>
 <div class="help">Hiding items gives the chart more room.</div>
 <div class="f"><label>Refresh interval</label><select id="iv">${choices.map((c) => `<option value="${c}" ${c === s.interval ? "selected" : ""}>Every ${fmtInterval(c)}</option>`).join("")}</select></div>
@@ -527,11 +559,15 @@ ${d.rate_limited || (age != null && age > 30) ? `<div class="stale">${d.rate_lim
         const msg = { type: `${DOMAIN}/settings/set`, card_id: this._sid || this._storeId, symbol: valid,
           shares: Math.max(0, Number($("sh").value) || 0), interval: Number($("iv").value) };
         const hide = [...ov.querySelectorAll(".chk input")].filter((x) => !x.checked).map((x) => x.dataset.k);
+        const extra = { hide };
+        const sv = $("sv").value.trim(), sd = $("sd").value;
+        if (sv !== "" && Number(sv) >= 0) extra.statement_value = Number(sv);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(sd)) extra.statement_date = sd;
         try {
-          this._stored = await this._hass.callWS({ ...msg, hide });
+          this._stored = await this._hass.callWS({ ...msg, ...extra });
         } catch (e) {
           // an older integration may not accept "hide"
-          if (!/hide|extra keys/i.test(e.message || "")) throw e;
+          if (!/hide|statement|extra keys/i.test(e.message || "")) throw e;
           this._stored = await this._hass.callWS(msg);
         }
         close();

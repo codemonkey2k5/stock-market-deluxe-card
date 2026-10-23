@@ -1,5 +1,5 @@
 DOMAIN = "stock_market_deluxe_card"
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 URL_BASE = "/stock_market_deluxe_card"
 CARD_FILE = "stock-market-deluxe-card.js"
 CARD_URL = f"{URL_BASE}/{CARD_FILE}"
