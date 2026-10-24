@@ -45,6 +45,7 @@ Then click the settings button on the card to change the stock and the other set
 
 - **Stock symbol.** The short code a stock trades under, like TSLA for Tesla or AAPL for Apple. Type it and the card looks it up and shows the company name, so you know you got the right one.
 - **Shares owned.** How many shares you have. The card uses this to work out what they're worth. Leave it at 0 if you just want to watch the price.
+- **Current Value and Statement date.** These are optional. If you know what your shares were worth on a certain day, like the date on a brokerage statement, enter that value and the date. The card starts from that value and follows the price from that day on. Leave both blank and the card just multiplies your shares by the price.
 - **Show on the card.** Tick or untick each part of the card. Hide what you don't need and the chart gets the extra room.
 - **Refresh interval.** How often the card gets a new price.
 
